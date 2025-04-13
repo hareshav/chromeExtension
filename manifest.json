@@ -1,0 +1,25 @@
+{
+    "manifest_version": 3,
+    "name": "Content Recommender",
+    "version": "1.0",
+    "description": "Recommends content from your text in form fields",
+    "permissions": [
+        "activeTab",
+        "scripting",
+        "storage",
+        "tabs"
+    ],
+    "host_permissions": [
+        "https://api.groq.com/*"
+    ],
+    "action": {
+        "default_popup": "popup.html"
+    },
+    "content_scripts": [
+        {
+            "matches": ["<all_urls>"],
+            "js": ["dist/content.bundle.js"],
+            "css": ["styles.css"]
+        }
+    ]
+}
