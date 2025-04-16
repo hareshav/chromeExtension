@@ -464,7 +464,7 @@ async function showPopup(input) {
                     <div class="suggestion-text">Generating suggestions...</div>
                 </div>
                 <div class="popup-footer">
-                    <span class="shortcut-hint">Press ${getShortcutText()} to show suggestions</span>
+                    <div class="shortcut-hint">Press ${getShortcutText()} to unshow suggestions</div>
                 </div>
             `;
         } else {
@@ -499,36 +499,49 @@ async function showPopup(input) {
             }
         }
 
-        // Get response from Groq using input info and page content
-        const response = await getGroqResponse(inputInfo);
-        
-        // Update popup with suggestion
-        suggestionContent.innerHTML = `
-            <div class="field-type">${input.type.charAt(0).toUpperCase() + input.type.slice(1)} Field</div>
-            <div class="original-question">${inputInfo.question}</div>
-            <div class="suggestion-text">
-                <div class="main-suggestion">
-                    ${response.answer}
-                    <span class="confidence">(${response.confidence}% confidence)</span>
+        // Add event listener for ESC key
+        document.addEventListener('keydown', handleEscape, { once: true });
+
+        // Function to handle ESC key
+        function handleEscape(event) {
+            if (event.key === 'Escape') {
+                hidePopup();
+            }
+        }
+
+        // Only get new suggestions if the popup doesn't already exist
+        if (!popup.querySelector('.main-suggestion')) {
+            // Get response from Groq using input info and page content
+            const response = await getGroqResponse(inputInfo);
+            
+            // Update popup with suggestion
+            suggestionContent.innerHTML = `
+                <div class="field-type">${input.type.charAt(0).toUpperCase() + input.type.slice(1)} Field</div>
+                <div class="original-question">${inputInfo.question}</div>
+                <div class="suggestion-text">
+                    <div class="main-suggestion">
+                        ${response.answer}
+                        <span class="confidence">(${response.confidence}% confidence)</span>
+                    </div>
+                    <div class="context">
+                        ${response.explanation || ''}
+                    </div>
                 </div>
-                <div class="context">
-                    ${response.explanation || ''}
-                </div>
-            </div>
-            <button class="use-suggestion">Use this text</button>
-        `;
-        
-        // Add click handlers for suggestions
-        const useButton = suggestionContent.querySelector('.use-suggestion');
-        if (useButton) {
-            useButton.addEventListener('click', function() {
-                if (activeInputElement) {
-                    activeInputElement.value = response.answer;
-                    activeInputElement.dispatchEvent(new Event('input', { bubbles: true }));
-                    activeInputElement.dispatchEvent(new Event('change', { bubbles: true }));
-                    popup.remove();
-                }
-            });
+                <button class="use-suggestion">Use this text</button>
+            `;
+            
+            // Add click handlers for suggestions
+            const useButton = suggestionContent.querySelector('.use-suggestion');
+            if (useButton) {
+                useButton.addEventListener('click', function() {
+                    if (activeInputElement) {
+                        activeInputElement.value = response.answer;
+                        activeInputElement.dispatchEvent(new Event('input', { bubbles: true }));
+                        // Removed dispatching change event here
+                        popup.remove();
+                    }
+                });
+            }
         }
     } catch (error) {
         const suggestionContent = document.querySelector('.suggestion-content');
@@ -547,11 +560,21 @@ async function showPopup(input) {
 function getShortcutText() {
     const parts = [];
     
-    if (keyboardShortcut.ctrlKey) parts.push('Ctrl');
     if (keyboardShortcut.altKey) parts.push('Alt');
     if (keyboardShortcut.shiftKey) parts.push('Shift');
     
-    // Format the key to be more readable
+    let key = keyboardShortcut.key.toUpperCase();
+    if (key === ' ') key = 'Space';
+    
+    return parts.join('+') + (parts.length ? '+' : '') + key;
+}
+
+// Function to hide the popup
+function hidePopup() {
+    const popup = document.querySelector('.cascade-suggestion-popup');
+    if (popup) {
+        popup.remove();
+    }
     let key = keyboardShortcut.key.toUpperCase();
     if (key === ' ') key = 'Space';
     
