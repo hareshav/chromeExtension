@@ -1,0 +1,11 @@
+node_modules/
+dist/
+build/
+.content-cache/
+*.log
+.env
+.env.*
+.DS_Store
+*.swp
+*.swo
+*.lock
