@@ -5,8 +5,15 @@
     <link rel="stylesheet" type="text/css" href="styles.css">
 </head>
 <body>
-    <div class="container"
+    <div class="container">
         <h1>Content Recommender</h1>
+        <div class="toggle-section">
+            <label class="toggle-switch">
+                <input type="checkbox" id="suggestionsToggle" checked>
+                <span class="slider"></span>
+            </label>
+            <span class="toggle-label">Show Suggestions</span>
+        </div>
         <div class="input-section">
             <textarea id="mainContent" placeholder="Enter your content here. It will be automatically recommended in form fields..." rows="5"></textarea>
         </div>

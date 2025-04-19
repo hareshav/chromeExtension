@@ -1,6 +1,8 @@
 document.addEventListener('DOMContentLoaded', function() {
     const mainContent = document.getElementById('mainContent');
     const status = document.getElementById('status');
+    const suggestionsToggle = document.getElementById('suggestionsToggle');
+    let suggestionsEnabled = true;
 
     // Function to update content
     function updateContent() {
@@ -27,6 +29,26 @@ document.addEventListener('DOMContentLoaded', function() {
             }, 1000);
         });
     }
+
+    // Initialize toggle state from storage
+    chrome.storage.local.get(['suggestionsEnabled'], function(result) {
+        suggestionsEnabled = result.suggestionsEnabled !== false;
+        suggestionsToggle.checked = suggestionsEnabled;
+    });
+
+    // Handle toggle changes
+    suggestionsToggle.addEventListener('change', function() {
+        suggestionsEnabled = this.checked;
+        chrome.storage.local.set({ suggestionsEnabled });
+        
+        // Send message to content script to update suggestion state
+        chrome.tabs.query({active: true, currentWindow: true}, function(tabs) {
+            chrome.tabs.sendMessage(tabs[0].id, {
+                action: 'toggleSuggestions',
+                enabled: suggestionsEnabled
+            });
+        });
+    });
 
     // Handle content changes with debounce
     let updateTimeout;

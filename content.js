@@ -1,14 +1,317 @@
-// Import Groq SDK
 import { Groq } from 'groq-sdk';
+
 // Initialize Groq client
 const groq = new Groq({ 
     apiKey: process.env.GROQ_API_KEY,
     dangerouslyAllowBrowser: true
 });
+
+function sleep(ms) {
+    return new Promise(resolve => setTimeout(resolve, ms));
+}
+
 let popup=null;
+async function showPopup(target) {
+    // Get the textarea's position
+    const rect = target.getBoundingClientRect();
+    console.log('Textarea position:', rect);
+    // Create popup if it doesn't exist
+    if (!popup) {
+        popup = document.createElement('div');
+        // Position the popup absolutely near the target
+        popup.style.position = 'absolute';
+        popup.style.zIndex = '9999';
+        popup.style.backgroundColor = 'white';
+        popup.style.padding = '0px';
+        popup.style.borderRadius = '0px';
+        popup.style.boxShadow = '0 0px 0px rgba(0,0,0,0.1)';
+        document.body.appendChild(popup);
+    }
+
+            // Add content and buttons
+    console.log('Attempting to get textarea content');
+            
+    const inputInfo = await getInputInfo(target);
+    console.log('Input info:', inputInfo);
+
+    const groqresponse = await getGroqResponse(inputInfo);
+    console.log('Groq response:', groqresponse);
+    
+    popup.innerHTML = `
+        
+            <style>
+                .cascade-suggestion-popup {
+                    position: absolute;
+                    z-index: 10000;
+                    background: white;
+                    border: 1px solid #ddd;
+                    border-radius: 6px;
+                    box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+                    padding: 0;
+                    width: 300px;
+                    max-width: 90vw;
+                    font-family: Arial, sans-serif;
+                    font-size: 14px;
+                    overflow: hidden;
+                    visibility: visible;
+                }
+
+                .cascade-suggestion-popup .popup-header {
+                    background: #f5f8fa;
+                    border-bottom: 1px solid #e1e8ed;
+                    padding: 8px 10px;
+                    display: flex;
+                    justify-content: space-between;
+                    align-items: center;
+                }
+
+                .cascade-suggestion-popup .popup-title {
+                    font-weight: bold;
+                    color: #1da1f2;
+                }
+
+                .cascade-suggestion-popup .popup-footer {
+                    background: #f5f8fa;
+                    border-top: 1px solid #e1e8ed;
+                    padding: 6px 10px;
+                    font-size: 11px;
+                    color: #657786;
+                    text-align: center;
+                }
+
+                .cascade-suggestion-popup .shortcut-hint {
+                    font-style: italic;
+                }
+
+                .cascade-suggestion-popup .close-btn {
+                    background: none;
+                    border: none;
+                    font-size: 18px;
+                    cursor: pointer;
+                    color: #999;
+                    width: 24px;
+                    height: 24px;
+                    display: flex;
+                    align-items: center;
+                    justify-content: center;
+                    border-radius: 50%;
+                }
+
+                .cascade-suggestion-popup .close-btn:hover {
+                    background: #e1e8ed;
+                    color: #333;
+                }
+
+                .cascade-suggestion-popup .suggestion-content {
+                    padding: 10px;
+                }
+
+                .cascade-suggestion-popup .field-type {
+                    color: #888;
+                    font-size: 12px;
+                    margin-bottom: 5px;
+                    text-transform: capitalize;
+                }
+
+                .cascade-suggestion-popup .original-question {
+                    color: #666;
+                    font-style: italic;
+                    margin-bottom: 8px;
+                    font-size: 13px;
+                }
+
+                .cascade-suggestion-popup .suggestion-text {
+                    color: #333;
+                    margin-bottom: 10px;
+                }
+
+                .cascade-suggestion-popup .use-suggestion {
+                    background: #2196F3;
+                    color: white;
+                    border: none;
+                    padding: 6px 12px;
+                    border-radius: 4px;
+                    cursor: pointer;
+                    font-size: 13px;
+                    transition: background 0.2s;
+                    width: 100%;
+                    margin-top: 8px;
+                }
+
+                .cascade-suggestion-popup .use-suggestion:hover {
+                    background: #1976D2;
+                }
+
+                .cascade-suggestion-popup .main-suggestion {
+                    font-weight: bold;
+                    padding: 8px;
+                    background: #f5f9ff;
+                    border-radius: 4px;
+                    border-left: 3px solid #2196F3;
+                }
+
+                .cascade-suggestion-popup .confidence {
+                    font-size: 12px;
+                    color: #666;
+                    margin-left: 5px;
+                }
+
+                .cascade-suggestion-popup .context {
+                    font-size: 12px;
+                    color: #666;
+                    margin: 8px 0;
+                    font-style: italic;
+                }
+
+                .cascade-suggestion-popup .alternatives {
+                    margin-top: 12px;
+                }
+
+                .cascade-suggestion-popup .alt-header {
+                    font-weight: bold;
+                    margin-bottom: 8px;
+                    color: #555;
+                    font-size: 12px;
+                }
+
+                .cascade-suggestion-popup .alt-suggestion {
+                    background: #e8f4fd;
+                    border: 1px solid #c5e1f9;
+                    padding: 6px 12px;
+                    border-radius: 4px;
+                    cursor: pointer;
+                    font-size: 13px;
+                    transition: all 0.2s;
+                    margin-bottom: 6px;
+                    display: block;
+                    width: 100%;
+                    text-align: left;
+                    color: #0d47a1;
+                }
+
+                .cascade-suggestion-popup .alt-suggestion:hover {
+                    background: #c5e1f9;
+                    border-color: #90caf9;
+                }
+            </style>
+            <div class="cascade-suggestion-popup">
+            <div class="popup-header">
+                <span class="popup-title">Suggestions</span>
+                <button class="close-btn" title="Close">×</button>
+            </div>
+            <div class="suggestion-content">
+                <p class="original-question">Original Question</p>
+                <p class="suggestion-text">${groqresponse.answertext}</p>
+                <p class="shortcut-hint">${groqresponse.confidence}</p>
+                <button class="use-suggestion" title="useTextBtn">Use Text</button>
+            </div>
+            <div class="popup-footer">
+                <p class="shortcut-hint">Press Esc to close suggestions</p>
+            </div>
+        </div>
+    `;
+    console.log('Popup HTML set');
+    console.log('Popup exists:', popup !== null);
+    
+    // Make the popup visible
+    popup.style.visibility = 'visible';
+    // console.log('Popup content:', popup.innerHTML);
+
+    // Get elements
+    const closeBtn = popup.querySelector('button[title="Close"]');
+    const useTextBtn = popup.querySelector('button[title="useTextBtn"]');
+
+    // Remove any existing event listeners
+    popup.querySelectorAll('button').forEach(button => {
+        button.removeEventListener('click', () => {});
+    });
+
+    // Add event listeners only if elements exist
+    if (closeBtn) {
+        closeBtn.addEventListener('click', () => {
+            popup.remove();
+            popup = null;
+        });
+    }
+    
+    if (useTextBtn) {
+        useTextBtn.addEventListener('click', async () => {
+            try {
+                // Set the textarea value
+                target.value = groqresponse.answer;
+                
+                // Focus the textarea and select the text
+                target.focus();
+                target.setSelectionRange(0, target.value.length);
+                
+                // Clean up the popup
+                popup.remove();
+                
+                // Clean up event listeners
+                popup.removeEventListener('click', clickHandler);
+                popup = null;
+                document.removeEventListener('click', outsideClickHandler);
+            } catch (error) {
+                console.error('Error setting textarea value:', error);
+            }
+        });
+    }
+
+    // Position the popup below the target input/textarea
+    popup.style.top = `${window.scrollY + rect.bottom + 8}px`;
+    popup.style.left = `${window.scrollX + rect.left}px`;
+
+    // Add event listeners for the popup
+    const clickHandler = (e) => {
+        if (e.target === popup) {
+            e.stopPropagation();
+        }
+    };
+    
+    // Add click outside handler
+    const outsideClickHandler = (e) => {
+        if (popup && !popup.contains(e.target)) {
+            cleanup();
+        }
+    };
+    
+    // Clean up when the popup is removed
+    const cleanup = () => {
+        if (popup) {
+            // Clean up event listeners
+            popup.removeEventListener('click', clickHandler);
+            document.removeEventListener('click', outsideClickHandler);
+            
+            // Remove popup
+            popup.remove();
+            popup = null;
+        }
+    };
+    
+    // Add event listeners
+    popup.addEventListener('click', clickHandler);
+    document.addEventListener('click', outsideClickHandler);
+
+    // Add cleanup for when the extension context is invalidated
+    chrome.runtime.onConnect.addListener((port) => {
+        port.onDisconnect.addListener(cleanup);
+    });;
+    sleep(1000);
+}
+document.addEventListener('keydown', function (e) {
+    console.log('Key pressed:', e.key,'    Popup:',popup);
+    if (e.key === 'Escape' && popup) {
+        console.log('ESC key pressed - closing popup');
+        popup.remove();
+        popup = null;
+    }
+});
+
 document.addEventListener('click', async (e) => {
     const target = e.target;
-    if (target.tagName.toLowerCase() === 'textarea') {
+    const suggestionsEnabled = await chrome.storage.local.get(['suggestionsEnabled'])    
+    console.log('Suggestions enabled:', suggestionsEnabled);
+    if (suggestionsEnabled.suggestionsEnabled && (target.tagName.toLowerCase() === 'textarea' || target.tagName.toLowerCase() === 'input')) {
         console.log('Textarea clicked:', target);
         
         // Prevent direct editing of textarea
@@ -18,301 +321,29 @@ document.addEventListener('click', async (e) => {
         if (popup) {
             return;
         }
-        
-        // Get the textarea's position
-        const rect = target.getBoundingClientRect();
-        console.log('Textarea position:', rect);
-        // Create popup if it doesn't exist
-        if (!popup) {
-            popup = document.createElement('div');
-            popup.style.position = 'fixed';
-            popup.style.zIndex = '9999';
-            popup.style.backgroundColor = 'transparent';
-            popup.style.padding = '0px';
-            popup.style.borderRadius = '0px';
-            popup.style.boxShadow = '0 0px 0px rgba(0,0,0,0.1)';
-            document.body.appendChild(popup);
-        }
-
-        // Add content and buttons
-        console.log('Attempting to get textarea content');
-        
-        const inputInfo = await getInputInfo(target);
-        console.log('Input info:', inputInfo);
-
-        const groqresponse = await getGroqResponse(inputInfo);
-        console.log('Groq response:', groqresponse);
-        
-        popup.innerHTML = `
-            
-                <style>
-                    .cascade-suggestion-popup {
-                        position: absolute;
-                        z-index: 10000;
-                        background: white;
-                        border: 1px solid #ddd;
-                        border-radius: 6px;
-                        box-shadow: 0 4px 8px rgba(0,0,0,0.1);
-                        padding: 0;
-                        width: 300px;
-                        max-width: 90vw;
-                        font-family: Arial, sans-serif;
-                        font-size: 14px;
-                        overflow: hidden;
-                        visibility: visible;
-                    }
-
-                    .cascade-suggestion-popup .popup-header {
-                        background: #f5f8fa;
-                        border-bottom: 1px solid #e1e8ed;
-                        padding: 8px 10px;
-                        display: flex;
-                        justify-content: space-between;
-                        align-items: center;
-                    }
-
-                    .cascade-suggestion-popup .popup-title {
-                        font-weight: bold;
-                        color: #1da1f2;
-                    }
-
-                    .cascade-suggestion-popup .popup-footer {
-                        background: #f5f8fa;
-                        border-top: 1px solid #e1e8ed;
-                        padding: 6px 10px;
-                        font-size: 11px;
-                        color: #657786;
-                        text-align: center;
-                    }
-
-                    .cascade-suggestion-popup .shortcut-hint {
-                        font-style: italic;
-                    }
-
-                    .cascade-suggestion-popup .close-btn {
-                        background: none;
-                        border: none;
-                        font-size: 18px;
-                        cursor: pointer;
-                        color: #999;
-                        width: 24px;
-                        height: 24px;
-                        display: flex;
-                        align-items: center;
-                        justify-content: center;
-                        border-radius: 50%;
-                    }
-
-                    .cascade-suggestion-popup .close-btn:hover {
-                        background: #e1e8ed;
-                        color: #333;
-                    }
-
-                    .cascade-suggestion-popup .suggestion-content {
-                        padding: 10px;
-                    }
-
-                    .cascade-suggestion-popup .field-type {
-                        color: #888;
-                        font-size: 12px;
-                        margin-bottom: 5px;
-                        text-transform: capitalize;
-                    }
-
-                    .cascade-suggestion-popup .original-question {
-                        color: #666;
-                        font-style: italic;
-                        margin-bottom: 8px;
-                        font-size: 13px;
-                    }
-
-                    .cascade-suggestion-popup .suggestion-text {
-                        color: #333;
-                        margin-bottom: 10px;
-                    }
-
-                    .cascade-suggestion-popup .use-suggestion {
-                        background: #2196F3;
-                        color: white;
-                        border: none;
-                        padding: 6px 12px;
-                        border-radius: 4px;
-                        cursor: pointer;
-                        font-size: 13px;
-                        transition: background 0.2s;
-                        width: 100%;
-                        margin-top: 8px;
-                    }
-
-                    .cascade-suggestion-popup .use-suggestion:hover {
-                        background: #1976D2;
-                    }
-
-                    .cascade-suggestion-popup .main-suggestion {
-                        font-weight: bold;
-                        padding: 8px;
-                        background: #f5f9ff;
-                        border-radius: 4px;
-                        border-left: 3px solid #2196F3;
-                    }
-
-                    .cascade-suggestion-popup .confidence {
-                        font-size: 12px;
-                        color: #666;
-                        margin-left: 5px;
-                    }
-
-                    .cascade-suggestion-popup .context {
-                        font-size: 12px;
-                        color: #666;
-                        margin: 8px 0;
-                        font-style: italic;
-                    }
-
-                    .cascade-suggestion-popup .alternatives {
-                        margin-top: 12px;
-                    }
-
-                    .cascade-suggestion-popup .alt-header {
-                        font-weight: bold;
-                        margin-bottom: 8px;
-                        color: #555;
-                        font-size: 12px;
-                    }
-
-                    .cascade-suggestion-popup .alt-suggestion {
-                        background: #e8f4fd;
-                        border: 1px solid #c5e1f9;
-                        padding: 6px 12px;
-                        border-radius: 4px;
-                        cursor: pointer;
-                        font-size: 13px;
-                        transition: all 0.2s;
-                        margin-bottom: 6px;
-                        display: block;
-                        width: 100%;
-                        text-align: left;
-                        color: #0d47a1;
-                    }
-
-                    .cascade-suggestion-popup .alt-suggestion:hover {
-                        background: #c5e1f9;
-                        border-color: #90caf9;
-                    }
-                </style>
-                <div class="cascade-suggestion-popup">
-                <div class="popup-header">
-                    <span class="popup-title">Suggestions</span>
-                    <button class="close-btn" title="Close">×</button>
-                </div>
-                <div class="suggestion-content">
-                    <p class="original-question">Original Question</p>
-                    <p class="suggestion-text">${groqresponse.answer}</p>
-                    <p class="shortcut-hint">${groqresponse.confidence}</p>
-                    <button class="use-suggestion" title="useTextBtn">Use Text</button>
-                </div>
-                <div class="popup-footer">
-                    <p class="shortcut-hint">Press Esc to close suggestions</p>
-                </div>
-            </div>
-        `;
-        console.log('Popup HTML set');
-        console.log('Popup exists:', popup !== null);
-        
-        // Make the popup visible
-        popup.style.visibility = 'visible';
-        // console.log('Popup content:', popup.innerHTML);
-
-        // Get elements
-        const closeBtn = popup.querySelector('button[title="Close"]');
-        const useTextBtn = popup.querySelector('button[title="useTextBtn"]');
-
-        // Remove any existing event listeners
-        popup.querySelectorAll('button').forEach(button => {
-            button.removeEventListener('click', () => {});
-        });
-
-        // Add event listeners only if elements exist
-        if (closeBtn) {
-            closeBtn.addEventListener('click', () => {
-                popup.remove();
-                popup = null;
-            });
-        }
-
-        if (useTextBtn) {
-            useTextBtn.addEventListener('click', async () => {
-                try {
-                    // Set the textarea value
-                    target.value = groqresponse.answer;
-                    
-                    // Focus the textarea and select the text
-                    target.focus();
-                    target.setSelectionRange(0, target.value.length);
-                    
-                    // Clean up the popup
-                    popup.remove();
-                    
-                    // Clean up event listeners
-                    popup.removeEventListener('click', clickHandler);
-                    popup = null;
-                    document.removeEventListener('click', outsideClickHandler);
-                } catch (error) {
-                    console.error('Error setting textarea value:', error);
-                }
-            });
-        }
-    
-        
-
-        // Position the popup
-        const popupRect = target.getBoundingClientRect();
-        popup.style.left = `${popupRect.left}px`;
-        popup.style.top = `${popupRect.bottom + 10}px`;
-        popup.style.width = `${popupRect.width}px`;
-        
-        // Ensure the popup is visible
-        popup.style.position = 'fixed';
-        popup.style.display = 'block';
-        popup.style.visibility = 'visible';
-
-        // Add event listeners for the popup
-        const clickHandler = (e) => {
-            if (e.target === popup) {
-                e.stopPropagation();
-            }
-        };
-        
-        // Add click outside handler
-        const outsideClickHandler = (e) => {
-            if (popup && !popup.contains(e.target)) {
-                cleanup();
-            }
-        };
-        
-        // Clean up when the popup is removed
-        const cleanup = () => {
-            if (popup) {
-                // Clean up event listeners
-                popup.removeEventListener('click', clickHandler);
-                document.removeEventListener('click', outsideClickHandler);
-                
-                // Remove popup
-                popup.remove();
-                popup = null;
-            }
-        };
-        
-        // Add event listeners
-        popup.addEventListener('click', clickHandler);
-        document.addEventListener('click', outsideClickHandler);
-
-        // Add cleanup for when the extension context is invalidated
-        chrome.runtime.onConnect.addListener((port) => {
-            port.onDisconnect.addListener(cleanup);
-        });;
+        showPopup(target);
     }
     });
+
+
+
+//shortcut
+document.addEventListener('keydown', function (e) {
+    // console.log('Key pressed:', e);
+    if (e.altKey && e.shiftKey && e.key.toLowerCase() === 's') {
+    //   const clickedTextarea = document.querySelector('textarea[data-clicked="true"]');
+    const suggestionsEnabled = chrome.storage.local.get(['suggestionsEnabled'])   
+    console.log('clicked button');
+      if (suggestionsEnabled.suggestionsEnabled && document.activeElement.tagName.toLowerCase() === 'textarea'||document.activeElement.tagName.toLowerCase() === 'input') {
+
+        // showPopup(clickedTextarea);
+        console.log("key pressed");
+        // Reset so it doesn't keep triggering
+        showPopup(document.activeElement)
+      } 
+    }
+  });
+
 
 
 /*FUNCTIONS TO BE USED FOR ABOVE*/
@@ -542,16 +573,25 @@ async function getGroqResponse(inputInfo) {
                     role: 'system',
                     content: `You are a helpful assistant that generates relevant answers for form fields.
                     Your response must be ONLY a JSON object with this exact structure:
+                    
+                    
                     {
-                        "answer": "A direct, concise answer that the user can copy into the form field should be string",
+                        "answertext": "A direct, concise answer that the user can copy into the form field",
                         "confidence": "A number between 0 and 100",
                         "explanation": "Brief explanation of why this answer is appropriate"
+                    }
+                    
+                    example
+                    {
+                        "answertext":"text",
+                        "confidence":100,
+                        "explanation":"reason"
                     }
                     
                     IMPORTANT: ONLY return the JSON object, nothing else.
                     Do not include any explanations or other text outside the JSON.
                     
-                    The answer should be concise and directly usable in the form field.
+                    The answer should be concise and directly usable in the form field it should be only string.
                     If the page content contains relevant information that could help answer the question,
                     incorporate that information into your response.
                     
@@ -587,14 +627,15 @@ async function getGroqResponse(inputInfo) {
         if (!chatCompletion.choices || !chatCompletion.choices[0] || !chatCompletion.choices[0].message) {
             throw new Error('Invalid response format from Groq API');
         }
-
+        // console.log(typeof(chatCompletion.choices[0].message.content));
+        // return chatCompletion.choices[0].message.content;
         const responseText = chatCompletion.choices[0].message.content.trim();
         let responseJson;
         try {
             responseJson = JSON.parse(responseText);
             
             // Validate the response structure
-            if (!responseJson.answer || typeof responseJson.confidence !== 'number' || !responseJson.explanation) {
+            if (!responseJson.answertext || typeof responseJson.confidence !== 'number' || !responseJson.explanation) {
                 throw new Error('Invalid response structure');
             }
             
@@ -604,7 +645,7 @@ async function getGroqResponse(inputInfo) {
             if (match) {
                 try {
                     responseJson = JSON.parse(match[1]);
-                    if (!responseJson.answer || typeof responseJson.confidence !== 'number' || !responseJson.explanation) {
+                    if (!responseJson.answertext || typeof responseJson.confidence !== 'number' || !responseJson.explanation) {
                         throw new Error('Invalid response structure');
                     }
                 } catch {
@@ -615,7 +656,7 @@ async function getGroqResponse(inputInfo) {
                 const fallbackAnswer = responseText.trim();
                 if (fallbackAnswer) {
                     return {
-                        answer: fallbackAnswer,
+                        answertext: fallbackAnswer,
                         confidence: 50,
                         explanation: 'Fallback response - direct text from API'
                     };
@@ -626,11 +667,10 @@ async function getGroqResponse(inputInfo) {
         }
 
         return {
-            answer: responseJson.answer || '',
+            answertext: responseJson.answertext || '',
             confidence: responseJson.confidence || 0,
             explanation: responseJson.explanation || ''
         };
-
     } catch (error) {
         // Log the error for debugging
         console.error('API Error:', error);
